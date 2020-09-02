@@ -1,0 +1,17 @@
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentity
+metadata:
+  name: avama2mi1
+spec:
+  type: 0
+  resourceID: /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1
+  clientID: 987c244a-0cf6-4735-a29e-c2e2fa645763
+---
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentityBinding
+metadata:
+  name: avama2mi1-binding
+spec:
+  azureIdentity: avama2mi1
+  selector: avama2mi1
+

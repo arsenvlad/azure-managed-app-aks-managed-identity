@@ -1,0 +1,38 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "principalId": {
+            "type": "string"
+        },
+        "principalType": {
+            "type": "string"
+        },
+        "roleDefinitionId": {
+            "type": "string"
+        },
+        "scope": {
+            "type": "string"
+        },
+        "delegatedManagedIdentityResourceId": {
+            "type": "string"
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2019-04-01-preview",
+            "name": "[guid(concat(parameters('principalId'),parameters('roleDefinitionId'),parameters('scope')))]",
+            "properties": {
+                "principalId": "[parameters('principalId')]",
+                "principalType": "[parameters('principalType')]",
+                "roleDefinitionId": "[parameters('roleDefinitionId')]",
+                "scope": "[parameters('scope')]",
+                "delegatedManagedIdentityResourceId": "[parameters('delegatedManagedIdentityResourceId')]"
+            }
+        }
+    ],
+    "outputs": {}
+}

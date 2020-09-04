@@ -127,7 +127,7 @@ A way to add User Assigned Identity role assignments **at deployment time** to t
 1. Use a nested resourceGroup-scoped inline deployment to create Owner (or Contributor depending on what permissions are needed) role assignment for the user assigned identity at the scope of the AKS Node Resource Group. This must be a nested deployment since scope must align with the deployment.
 1. Now, we can use this user assigned identity in our bootstraping VMs (or Deployment Scripts) to make changes to all node pool VMSSs that make up the AKS cluster (remember to do it for new node pools that maybe created later to ensure they also have the needed identity)
 
-See [userAssignedIdentity-to-aks-noderesourcegroup.json](userAssignedIdentity-to-aks-noderesourcegroup.json) for an example template with nested deployment.
+See [ama-aks folder](./ama-aks) for an example template managed app with AKS and nested role assignment templates.
 
 ```bash
 # On bootstrapping VM, login using its user assigned identity

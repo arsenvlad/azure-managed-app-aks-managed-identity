@@ -34,12 +34,25 @@
     "adminUsername": "azureuser",
     "sshPublicKey": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9wmUPRLdMUJ8/HJz+gpp1YbE09W7HHsAmh0SoCUUrjCsdAoK7x9IQcl+5WP3H1JmtvejZRbPemxtbWgtN3aMvr4WxB0ukfdc4Dcsj73uyhBKn9pUAa/uQV0pwX1FsTNsLF8U99kjfEmCwW6bHOS5PB2E9Kh0pw8i1A36kcgudtoWd6XmwLwlAeVtK+ULkHUHNjOxqLXzbISKeARnhBzqnlA/g+usYEvTLL/VzKFd8FZEF+UBxo5FNVuFIyyXSEr2lRMiaa0W++E1EWhwGNn5weM36vFaZS0So2I8tV/aEb7hfpVe9hSrGjkijAwh+E+nNvjyg0Z1Y407nKvCD9yLr sshKey1",
     "logAnalyticsWorkspaceName": "[concat(parameters('aksName'),uniqueString(resourceGroup().id))]",
-    "identityName": "user-assigned-identity1",
+    "identityName": "[concat(parameters('aksName'),'-identity')]",
     "nodeResourceGroup": "[concat(resourceGroup().name,'-aks-rg')]",
-    "roleDefinitionIdOwner": "[resourceId('Microsoft.Authorization/roleDefinitions', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]",
-    "roleDefinitionNameOwner": "[guid(variables('identityName'), variables('roleDefinitionIdOwner'))]"
+    "roleDefinitionIdOwner": "[resourceId('Microsoft.Authorization/roleDefinitions', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]"
   },
   "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-05-01",
+      "name": "pid-442cf8d0-27a2-4caa-9b53-3d93b8c4bbd1",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+          ]
+        }
+      }
+    },
     {
       "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
       "apiVersion": "2018-11-30",
@@ -47,9 +60,23 @@
       "location": "[parameters('location')]"
     },
     {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[guid(resourceGroup().id, variables('identityName'), variables('roleDefinitionIdOwner'))]",
+      "dependsOn": [
+        "[variables('identityName')]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[variables('roleDefinitionIdOwner')]",
+        "principalId": "[reference(variables('identityName')).principalId]",
+        "scope": "[resourceGroup().id]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2019-05-01",
-      "name": "[guid(resourceGroup().id)]",
+      "name": "[concat('roleassignment-',guid(resourceGroup().id))]",
       "resourceGroup": "[variables('nodeResourceGroup')]",
       "dependsOn": [
         "[variables('identityName')]",
@@ -63,8 +90,8 @@
           "resources": [
             {
               "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2019-04-01-preview",
-              "name": "[variables('roleDefinitionNameOwner')]",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[guid(variables('nodeResourceGroup'), variables('identityName'), variables('roleDefinitionIdOwner'))]",
               "properties": {
                 "roleDefinitionId": "[variables('roleDefinitionIdOwner')]",
                 "principalId": "[reference(variables('identityName')).principalId]",
@@ -93,7 +120,7 @@
     },
     {
       "type": "Microsoft.ContainerService/managedClusters",
-      "apiVersion": "2020-06-01",
+      "apiVersion": "2020-03-01",
       "location": "[parameters('location')]",
       "name": "[parameters('aksName')]",
       "dependsOn": [
@@ -153,9 +180,17 @@
       "type": "string",
       "value": "[parameters('aksName')]"
     },
+    "managedResourceGroup": {
+      "type": "string",
+      "value": "[resourceGroup().id]"
+    },
     "aksNodeResourceGroup": {
       "type": "string",
       "value": "[concat(subscription().id,'/resourceGroups/',reference(parameters('aksName')).nodeResourceGroup)]"
+    },
+    "userAssignedIdentity": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
     }
   }
 }

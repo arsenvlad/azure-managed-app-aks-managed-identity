@@ -2,7 +2,9 @@
 
 ## Testing prior to publishing in marketplace
 
-While developing and iterating, it is convenient to test the app without having to publish it in marketplace every time since push to preview may take a few hours.
+While developing and iterating, it is convenient to test the app without having to publish it in marketplace every time since push to preview may sometime take a few hours.
+
+> When testing locally, we need to comment out the "delegatedManagedIdentityResourceId" lines in the role assignments since this property can be used only in cross-tenant scenarios such as deployment from Azure Marketplace.
 
 Zip relevant files and upload to a storage container
 

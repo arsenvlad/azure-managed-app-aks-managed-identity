@@ -34,14 +34,21 @@
     "adminUsername": "azureuser",
     "sshPublicKey": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9wmUPRLdMUJ8/HJz+gpp1YbE09W7HHsAmh0SoCUUrjCsdAoK7x9IQcl+5WP3H1JmtvejZRbPemxtbWgtN3aMvr4WxB0ukfdc4Dcsj73uyhBKn9pUAa/uQV0pwX1FsTNsLF8U99kjfEmCwW6bHOS5PB2E9Kh0pw8i1A36kcgudtoWd6XmwLwlAeVtK+ULkHUHNjOxqLXzbISKeARnhBzqnlA/g+usYEvTLL/VzKFd8FZEF+UBxo5FNVuFIyyXSEr2lRMiaa0W++E1EWhwGNn5weM36vFaZS0So2I8tV/aEb7hfpVe9hSrGjkijAwh+E+nNvjyg0Z1Y407nKvCD9yLr sshKey1",
     "logAnalyticsWorkspaceName": "[concat(parameters('aksName'),uniqueString(resourceGroup().id))]",
+    "storageAccountName": "[concat(parameters('aksName'),uniqueString(resourceGroup().id))]",
+    "vnetName": "[concat('vnet-',parameters('aksName'))]",
+    "vmName": "[concat('bootstrapvm-',parameters('aksName'))]",
+    "nsgName": "[concat('nsg-',parameters('aksName'))]",
+    "nicName": "[concat('nic-',parameters('aksName'))]",
+    "pipName": "[concat('pip-',parameters('aksName'))]",
+    "pipDns": "[concat(parameters('aksName'),'-',uniqueString(resourceGroup().id))]",
     "identityName": "[concat(parameters('aksName'),'-identity')]",
     "nodeResourceGroup": "[concat(resourceGroup().name,'-aks-rg')]",
-    "roleDefinitionIdOwner": "[resourceId('Microsoft.Authorization/roleDefinitions', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]"
+    "roleDefinitionOwner": "8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
   },
   "resources": [
     {
       "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2019-05-01",
+      "apiVersion": "2019-10-01",
       "name": "pid-442cf8d0-27a2-4caa-9b53-3d93b8c4bbd1",
       "properties": {
         "mode": "Incremental",
@@ -62,20 +69,21 @@
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2020-04-01-preview",
-      "name": "[guid(resourceGroup().id, variables('identityName'), variables('roleDefinitionIdOwner'))]",
+      "name": "[guid(resourceGroup().id, variables('identityName'), variables('roleDefinitionOwner'))]",
       "dependsOn": [
         "[variables('identityName')]"
       ],
       "properties": {
-        "roleDefinitionId": "[variables('roleDefinitionIdOwner')]",
+        "roleDefinitionId": "[concat(subscription().id,'/providers/Microsoft.Authorization/roleDefinitions/',variables('roleDefinitionOwner'))]",
         "principalId": "[reference(variables('identityName')).principalId]",
+        "principalType": "ServicePrincipal",
         "scope": "[resourceGroup().id]",
-        "principalType": "ServicePrincipal"
+        "delegatedManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities',variables('identityName'))]"
       }
     },
     {
       "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2019-05-01",
+      "apiVersion": "2019-10-01",
       "name": "[concat('roleassignment-',guid(resourceGroup().id))]",
       "resourceGroup": "[variables('nodeResourceGroup')]",
       "dependsOn": [
@@ -91,12 +99,13 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2020-04-01-preview",
-              "name": "[guid(variables('nodeResourceGroup'), variables('identityName'), variables('roleDefinitionIdOwner'))]",
+              "name": "[guid(variables('nodeResourceGroup'), variables('identityName'), variables('roleDefinitionOwner'))]",
               "properties": {
-                "roleDefinitionId": "[variables('roleDefinitionIdOwner')]",
+                "roleDefinitionId": "[concat(subscription().id,'/providers/Microsoft.Authorization/roleDefinitions/',variables('roleDefinitionOwner'))]",
                 "principalId": "[reference(variables('identityName')).principalId]",
+                "principalType": "ServicePrincipal",
                 "scope": "[concat(subscription().id,'/resourceGroups/',variables('nodeResourceGroup'))]",
-                "principalType": "ServicePrincipal"
+                "delegatedManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities',variables('identityName'))]"
               }
             }
           ]
@@ -173,6 +182,178 @@
           }
         }
       }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-06-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS",
+        "tier": "Standard"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "isHnsEnabled": true,
+        "supportsHttpsTrafficOnly": true,
+        "accessTier": "Hot"
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIpAddresses",
+      "apiVersion": "2019-02-01",
+      "name": "[variables('pipName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIpAllocationMethod": "Dynamic",
+        "publicIPAddressVersion": "IPv4",
+        "dnsSettings": {
+          "domainNameLabel": "[variables('pipDns')]"
+        },
+        "idleTimeoutInMinutes": 4
+      },
+      "sku": {
+        "name": "Basic",
+        "tier": "Regional"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2019-02-01",
+      "name": "[variables('nsgName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "SSH",
+            "properties": {
+              "priority": 1000,
+              "protocol": "TCP",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "22"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2019-04-01",
+      "name": "[variables('vnetName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[variables('nsgName')]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "default",
+            "properties": {
+              "addressPrefix": "10.0.0.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              },
+              "privateEndpointNetworkPolicies": "Enabled",
+              "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2018-10-01",
+      "name": "[variables('nicName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[variables('vnetName')]",
+        "[variables('pipName')]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets',variables('vnetName'),'default')]"
+              },
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIpAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]"
+              }
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2019-03-01",
+      "name": "[variables('vmName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[variables('nicName')]",
+        "[variables('identityName')]"
+      ],
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]": {}
+        }
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('nodeSize')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            }
+          },
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "UbuntuServer",
+            "sku": "18.04-LTS",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[variables('adminUsername')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[concat('/home/', variables('adminUsername'), '/.ssh/authorized_keys')]",
+                  "keyData": "[variables('sshPublicKey')]"
+                }
+              ]
+            }
+          }
+        }
+      }
     }
   ],
   "outputs": {
@@ -183,10 +364,6 @@
     "managedResourceGroup": {
       "type": "string",
       "value": "[resourceGroup().id]"
-    },
-    "aksNodeResourceGroup": {
-      "type": "string",
-      "value": "[concat(subscription().id,'/resourceGroups/',reference(parameters('aksName')).nodeResourceGroup)]"
     },
     "userAssignedIdentity": {
       "type": "string",

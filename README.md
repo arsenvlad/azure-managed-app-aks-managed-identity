@@ -55,7 +55,7 @@ curl -H Metadata:true -s --noproxy "*" "http://169.254.169.254/metadata/identity
 
 ### Access storage using Bearer token
 
-Prior to executing commands below, as a customer, assign "Storage Blob Reader" role to the avama2-agentpool managed identity to the relevant storage account (avadlsgen2 as in the example below)
+Prior to executing commands below, we need assign "Storage Blob Reader" role to the avama2-agentpool managed identity to the relevant storage account (avadlsgen2 as in the example below) or the resource group containing the storage account. We can perform this assignment at deployment-time by improving the template in [ama-aks folder](./ama-aks) or after deployment using publisher credentials and the managedIdentityRoleAssignment.json template as described below.
 
 ```bash
 # Get access token for accessing storage for the specific user assigned identity of the VMSS
@@ -96,20 +96,42 @@ az aks show -g avama2-mrg -n avama2aks --query identityProfile.kubeletidentity.c
 # Publisher (if has "Owner" access) must use ARM template since need to set delegatedManagedIdentityResourceId which is not yet exposed via Azure CLI
 
 # Assign "Virtual Machine Contributor" to AKS node resource group that contains the VMSS of the nodes
-az deployment group create -g MC_avama2-mrg_avama2_westus --template-file managedIdentityRoleAssignment.json --parameters principalId="5d534332-2b97-4ad5-8cf2-7f70ed91226b" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-aks-rg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
+az deployment group create -g avama2-aks-rg --template-file managedIdentityRoleAssignment.json --parameters principalId="5d534332-2b97-4ad5-8cf2-7f70ed91226b" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/d73bb868-a0df-4d4d-bd69-98a00b01fccb" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-aks-rg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
 
 # "Managed Identity Operator" to managed resource group that will contain the managed identities that will be assigned to pods
-az deployment group create -g avama2-mrg --template-file managedIdentityRoleAssignment.json --parameters principalId="01642f5e-257a-4850-90a7-e4d428453e7a" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
+az deployment group create -g avama2-mrg --template-file managedIdentityRoleAssignment.json --parameters principalId="01642f5e-257a-4850-90a7-e4d428453e7a" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/f1a07417-d97a-45cb-824c-7a7467783830" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
 ```
 
 ### Create AzureIdentity and AzureIdentityBinding
 
 ```bash
 kubectl apply -f podidentity-azureidentity.yaml
+```
 
+### Start Pod using proper label and try getting token
+
+```bash
+kubectl run --rm -it testpodidentity --image=alpine --labels="aadpodidbinding=avama2mi1"
+
+curl -H Metadata:true -s --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F"
+```
+
+### Debug issues by looking at the logs of the binding
+
+```bash
 kubectl describe AzureIdentity avama2mi1
 
 kubectl describe AzureIdentityBinding avama2mi1-binding
+```
+
+## Publisher can Read and Delete Cross-Tenant Role Assignments
+
+```bash
+# Publisher can read role assignments of the customer in a different tenant using REST API (but not yet the Azrue CLI) by passing tenantId parameter of the customer's tenant
+az rest --method GET --uri "https://management.azure.com/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.Authorization/roleAssignments?api-version=2019-04-01-preview&tenantId=72f988bf-86f1-41af-91ab-2d7cd011db47&$filter=atScope%28%29" -o json
+
+# Publisher can delete role assignments of the customer in a different tenant using REST API (but not yet the Azrue CLI) by passing tenantId parameter of the customer's tenant
+az rest --method DELETE --uri "https://management.azure.com/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.Authorization/roleAssignments/089ed05c-6e69-5d9a-b7c6-cdb12f2cc6e7?api-version=2019-04-01-preview&tenantId=72f988bf-86f1-41af-91ab-2d7cd011db47" -o json
 ```
 
 ## Refresh Azure Managed Application Permissions
@@ -130,14 +152,4 @@ As publisher, we can execute the following command to get the managed app's syst
 
 ```bash
 az rest --method POST --uri /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2/providers/Microsoft.Solutions/applications/avama2managedapp/listTokens?api-version=2018-09-01-preview --headers Content-Type=application/json --body "{authorizationAudience: 'https://storage.azure.com/'}" -o json
-```
-
-## Publisher can Read and Delete Cross-Tenant Role Assignments
-
-```bash
-# Publisher can read role assignments of the customer in a different tenant using REST API (but not yet the Azrue CLI) by passing tenantId parameter of the customer's tenant
-az rest --method GET --uri "https://management.azure.com/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.Authorization/roleAssignments?api-version=2019-04-01-preview&tenantId=72f988bf-86f1-41af-91ab-2d7cd011db47&$filter=atScope%28%29" -o json
-
-# Publisher can delete role assignments of the customer in a different tenant using REST API (but not yet the Azrue CLI) by passing tenantId parameter of the customer's tenant
-az rest --method DELETE --uri "https://management.azure.com/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.Authorization/roleAssignments/089ed05c-6e69-5d9a-b7c6-cdb12f2cc6e7?api-version=2019-04-01-preview&tenantId=72f988bf-86f1-41af-91ab-2d7cd011db47" -o json
 ```

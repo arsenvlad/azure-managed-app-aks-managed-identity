@@ -105,12 +105,11 @@
               "userAssignedIdentity": "Add user assigned identities to grant the managed application access to additional existing resources."
             },
             "defaultValue": {
-              "systemAssignedIdentity": "Off"
+              "systemAssignedIdentity": "OnOnly"
             },
             "options": {
               "hideSystemAssignedIdentity": false,
-              "hideUserAssignedIdentity": false,
-              "readOnlySystemAssignedIdentity": false
+              "hideUserAssignedIdentity": true
             },
             "visible": true
           }

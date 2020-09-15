@@ -2,6 +2,27 @@
 
 This repo shows some sample commands for using AKS and Azure Managed Application managed identities.
 
+## Deployment-time User Assigned Identity to AKS Node Resource Group
+
+A way to add User Assigned Identity role assignments **at deployment time** to the AKS Node Resource Group
+
+1. Create user assigned managed identity during ARM template deployment
+1. Explicitly define a name for the AKS nodeResourceGroup instead of having AKS create the name automatically (i.e. MC_xxx_yyy_region) so that we can use this name for role assignment
+1. Use a nested resourceGroup-scoped inline deployment to create Owner (or Contributor depending on what permissions are needed) role assignment for the user assigned identity at the scope of the AKS Node Resource Group. This must be a nested deployment since scope must align with the deployment.
+1. Now, we can use this user assigned identity in our bootstraping VMs (or Deployment Scripts) to make changes to all node pool VMSSs that make up the AKS cluster (remember to do it for new node pools that maybe created later to ensure they also have the needed identity)
+
+See [ama-aks folder](./ama-aks) for an example template managed app with AKS and nested role assignment templates.
+
+> Publisher must have "Owner" access
+
+```bash
+# On bootstrapping VM, login using its user assigned identity
+az login --identity -u /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1
+
+# Assign identity to the VMSS
+az vmss identity assign -g <VMSS_RESOURCE_GROUP> -n <VMSS_NAME> --identities /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1
+```
+
 ## Publisher get AKS credentials
 
 After deploying AKS with a managed identity (from customer subscription), get the AKS credentials using publisher identity.
@@ -60,7 +81,7 @@ helm install aad-pod-identity aad-pod-identity/aad-pod-identity
 
 ### Create Managed Identity and Reader Role Assignment
 
->> Publisher must have "Owner" access
+> Publisher must have "Owner" access
 
 ```bash
 # Create user assigned identity in the managed resource group
@@ -69,10 +90,13 @@ az identity create -n avama2mi1 -g avama2-mrg
 # Get principalId of the created managed identity
 az identity show -n avama2mi1 -g avama2-mrg -o json
 
+# Get principalId of the AKS managed identity <https://github.com/Azure/aad-pod-identity/blob/master/docs/readmes/README.role-assignment.md>
+az aks show -g avama2-mrg -n avama2aks --query identityProfile.kubeletidentity.clientId -otsv
+
 # Publisher (if has "Owner" access) must use ARM template since need to set delegatedManagedIdentityResourceId which is not yet exposed via Azure CLI
 
-# Assign "Virtual Machine Contributor" to AKS MC_ resource group that contains the VMSS of the nodes
-az deployment group create -g MC_avama2-mrg_avama2_westus --template-file managedIdentityRoleAssignment.json --parameters principalId="5d534332-2b97-4ad5-8cf2-7f70ed91226b" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/MC_avama2-mrg_avama2_westus" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
+# Assign "Virtual Machine Contributor" to AKS node resource group that contains the VMSS of the nodes
+az deployment group create -g MC_avama2-mrg_avama2_westus --template-file managedIdentityRoleAssignment.json --parameters principalId="5d534332-2b97-4ad5-8cf2-7f70ed91226b" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-aks-rg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
 
 # "Managed Identity Operator" to managed resource group that will contain the managed identities that will be assigned to pods
 az deployment group create -g avama2-mrg --template-file managedIdentityRoleAssignment.json --parameters principalId="01642f5e-257a-4850-90a7-e4d428453e7a" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
@@ -116,23 +140,4 @@ az rest --method GET --uri "https://management.azure.com/subscriptions/c9c8ae57-
 
 # Publisher can delete role assignments of the customer in a different tenant using REST API (but not yet the Azrue CLI) by passing tenantId parameter of the customer's tenant
 az rest --method DELETE --uri "https://management.azure.com/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.Authorization/roleAssignments/089ed05c-6e69-5d9a-b7c6-cdb12f2cc6e7?api-version=2019-04-01-preview&tenantId=72f988bf-86f1-41af-91ab-2d7cd011db47" -o json
-```
-
-## Deployment-time User Assigned Identity to AKS Node Resource Group
-
-A way to add User Assigned Identity role assignments **at deployment time** to the AKS Node Resource Group
-
-1. Create user assigned managed identity during ARM template deployment
-1. Explicitely define a name for the AKS nodeResourceGroup instead of having AKS create the name automatically (i.e. MC_xxx_yyy_region) so that we can use this name for role assignment
-1. Use a nested resourceGroup-scoped inline deployment to create Owner (or Contributor depending on what permissions are needed) role assignment for the user assigned identity at the scope of the AKS Node Resource Group. This must be a nested deployment since scope must align with the deployment.
-1. Now, we can use this user assigned identity in our bootstraping VMs (or Deployment Scripts) to make changes to all node pool VMSSs that make up the AKS cluster (remember to do it for new node pools that maybe created later to ensure they also have the needed identity)
-
-See [ama-aks folder](./ama-aks) for an example template managed app with AKS and nested role assignment templates.
-
-```bash
-# On bootstrapping VM, login using its user assigned identity
-az login --identity -u /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1
-
-# Assign identity to the VMSS
-az vmss identity assign -g <VMSS_RESOURCE_GROUP> -n <VMSS_NAME> --identities /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1
 ```

@@ -52,7 +52,8 @@
     "nodeResourceGroup": "[concat(resourceGroup().name,'-aks-rg')]",
     "roleDefinitionOwner": "8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
     "roleDefinitionManagedIdentityOperator": "f1a07417-d97a-45cb-824c-7a7467783830",
-    "roleDefinitionVirtualMachineContributor": "9980e02c-c2be-4d73-94e8-173b1dc7cf3c"
+    "roleDefinitionVirtualMachineContributor": "9980e02c-c2be-4d73-94e8-173b1dc7cf3c",
+    "roleDefinitionMonitoringMetricsPublisher": "3913510d-42f4-4e42-8a64-420c390055eb"
   },
   "resources": [
     {
@@ -107,6 +108,25 @@
         "workspaceCapping": {
           "dailyQuotaGb": -1
         }
+      }
+    },
+    {
+      "comments": "*** Logs Analytics ContainerInsights Solution for AKS ***",
+      "type": "Microsoft.OperationsManagement/solutions",
+      "apiVersion": "2015-11-01-preview",
+      "name": "[concat('ContainerInsights', '(', variables('logAnalyticsWorkspaceName'), ')')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[variables('logAnalyticsWorkspaceName')]"
+      ],
+      "plan": {
+        "name": "[concat('ContainerInsights', '(', variables('logAnalyticsWorkspaceName'), ')')]",
+        "product": "OMSGallery/ContainerInsights",
+        "promotionCode": "",
+        "publisher": "Microsoft"
+      },
+      "properties": {
+        "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
       }
     },
     {
@@ -167,6 +187,22 @@
       }
     },
     {
+      "comments": "*** Monitoring Metrics Publisher Role Assignment to AKS for Container Insights ***",
+      "type": "Microsoft.ContainerService/managedClusters/providers/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[concat(parameters('aksName'),'/Microsoft.Authorization/',guid(resourceGroup().id, parameters('aksName'), variables('roleDefinitionMonitoringMetricsPublisher')))]",
+      "dependsOn": [
+        "[parameters('aksName')]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[concat(subscription().id,'/providers/Microsoft.Authorization/roleDefinitions/',variables('roleDefinitionMonitoringMetricsPublisher'))]",
+        "principalId": "[reference(parameters('aksName'),'2020-03-01','Full').properties.addonProfiles.omsagent.identity.objectId]",
+        "principalType": "ServicePrincipal",
+        "scope": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName'))]",
+        "delegatedManagedIdentityResourceId": "[if(parameters('crossTenant'), reference(parameters('aksName'),'2020-03-01','Full').properties.addonProfiles.omsagent.identity.resourceId, json('null'))]"
+      }
+    },
+    {
       "comments": "*** After AKS cluster gets deployed plus a delay of deploying bootstrap VM so that AMA RP gets proper permissions, use inner-scope nested template to get AKS managed identity resourceId and principalId ***",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2019-10-01",
@@ -197,10 +233,6 @@
           "variables": {},
           "resources": [],
           "outputs": {
-            "environment": {
-              "type": "object",
-              "value": "[environment()]"
-            },
             "aksMiResourceId": {
               "type": "string",
               "value": "[parameters('aksMiResourceId')]"
@@ -458,6 +490,10 @@
       "type": "string",
       "value": "[parameters('aksName')]"
     },
+    "aksFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters/', parameters('aksName'))).fqdn]"
+    },
     "managedResourceGroup": {
       "type": "string",
       "value": "[resourceGroup().id]"
@@ -465,6 +501,10 @@
     "userAssignedIdentity": {
       "type": "string",
       "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+    },
+    "subscription": {
+      "type": "object",
+      "value": "[subscription()]"
     }
   }
 }

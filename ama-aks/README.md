@@ -6,7 +6,7 @@ While developing and iterating, it is convenient to test the app without having 
 
 > When testing locally, we need to comment out the "delegatedManagedIdentityResourceId" lines in the role assignments since this property can be used only in cross-tenant scenarios such as deployment from Azure Marketplace.
 
-Test the application using <http://github.com/arm-ttk> tool
+Test the application using <http://github.com/Azure/arm-ttk> tool
 
 ```cmd
 C:\Code\GitHub\Azure\arm-ttk\arm-ttk\Test-AzTemplate.cmd

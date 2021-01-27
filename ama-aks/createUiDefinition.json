@@ -5,28 +5,6 @@
   "parameters": {
     "config": {
       "basics": {
-        "subscription": {
-          "constraints": {
-            "validations": [
-              {
-                "permission": "Microsoft.Authorization/roleDefinitions/write",
-                "message": "Azure user deploying this Managed Application must have permission to assign roles."
-              }
-            ]
-          },
-          "resourceProviders": [
-            "Microsoft.Resources",
-            "Microsoft.OperationalInsights",
-            "Microsoft.OperationsManagement",
-            "Microsoft.ContainerService",
-            "Microsoft.Compute",
-            "Microsoft.Network",
-            "Microsoft.Storage"
-          ]
-        },
-        "resourceGroup": {
-          "allowExisting": true
-        },
         "location": {
           "visible": true,
           "resourceTypes": [

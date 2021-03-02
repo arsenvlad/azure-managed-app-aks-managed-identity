@@ -2,7 +2,9 @@
 
 This repo includes some sample commands and ARM templates for experimenting with Azure Managed Application that deploys an AKS resource and Managed Identities. See related videos at [Azure Managed Application with AKS and deployment-time or cross-tenant role assignments to VM and Pod Managed Identities](https://medium.com/@ArsenVlad/azure-managed-application-with-aks-and-deployment-time-or-cross-tenant-role-assignments-to-vm-and-3ebce7d607c2)
 
-> Important: When building your Azure Application ARM templates for submission to Azure Marketplace, please make sure to carefully follow all of the guidelines and practices described [here](https://github.com/Azure/azure-quickstart-templates/blob/master/1-CONTRIBUTION-GUIDE/best-practices.md) and be ready to make fixes and changes based on [manual review feedback](https://docs.microsoft.com/en-us/azure/marketplace/partner-center-portal/azure-apps-review-feedback).
+> Important: Currently (March 2021), there are some capability-gaps when Azure Managed Application deploys an AKS resource. Azure Marketplace certification of such a managed app will **NOT** be approved to be published as a live offer. Therefore, please treat this repo as experimental examples and not as something you use to publish a real Azure Marketplace offer.
+
+> When building your Azure Application ARM templates for submission to Azure Marketplace, please make sure to carefully follow all of the guidelines and practices described [here](https://github.com/Azure/azure-quickstart-templates/blob/master/1-CONTRIBUTION-GUIDE/best-practices.md) and be ready to make fixes and changes based on [manual review feedback](https://docs.microsoft.com/en-us/azure/marketplace/partner-center-portal/azure-apps-review-feedback).
 
 ## Deployment-time User Assigned Identity to AKS Node Resource Group
 

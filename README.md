@@ -79,7 +79,9 @@ See <https://github.com/Azure/aad-pod-identity/> for more details.
 ### Deploy aad-pod-identity
 
 ```bash
-helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts
+# Pod Identity with Kubenet is not recommended and used here (via the nmi.allowedNetworkPluginKubenet=true) just as an example
+# See <https://azure.github.io/aad-pod-identity/docs/configure/aad_pod_identity_on_kubenet/>
+helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts --set nmi.allowNetworkPluginKubenet=true
 helm install aad-pod-identity aad-pod-identity/aad-pod-identity
 ```
 
@@ -95,7 +97,7 @@ az identity create -n avama2mi1 -g avama2-mrg
 az identity show -n avama2mi1 -g avama2-mrg -o json
 
 # Get principalId of the AKS managed identity <https://github.com/Azure/aad-pod-identity/blob/master/docs/readmes/README.role-assignment.md>
-az aks show -g avama2-mrg -n avama2aks --query identityProfile.kubeletidentity.clientId -otsv
+az aks show -g avama2-mrg -n avama2aks --query identityProfile.kubeletidentity.objectId -otsv
 
 # Publisher (if has "Owner" access) must use ARM template since need to set delegatedManagedIdentityResourceId which is not yet exposed via Azure CLI
 
@@ -103,7 +105,7 @@ az aks show -g avama2-mrg -n avama2aks --query identityProfile.kubeletidentity.c
 az deployment group create -g avama2-aks-rg --template-file managedIdentityRoleAssignment.json --parameters principalId="5d534332-2b97-4ad5-8cf2-7f70ed91226b" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/d73bb868-a0df-4d4d-bd69-98a00b01fccb" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-aks-rg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourcegroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
 
 # "Managed Identity Operator" to managed resource group that will contain the managed identities that will be assigned to pods
-az deployment group create -g avama2-mrg --template-file managedIdentityRoleAssignment.json --parameters principalId="01642f5e-257a-4850-90a7-e4d428453e7a" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/f1a07417-d97a-45cb-824c-7a7467783830" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
+az deployment group create -g avama2-mrg --template-file managedIdentityRoleAssignment.json --parameters principalId="5d534332-2b97-4ad5-8cf2-7f70ed91226b" principalType="ServicePrincipal" roleDefinitionId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/providers/Microsoft.Authorization/roleDefinitions/f1a07417-d97a-45cb-824c-7a7467783830" scope="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg" delegatedManagedIdentityResourceId="/subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2-mrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/avama2mi1"
 ```
 
 ### Create AzureIdentity and AzureIdentityBinding

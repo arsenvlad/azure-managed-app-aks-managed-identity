@@ -150,6 +150,9 @@ az rest --method GET --uri /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/r
 
 # Refresh permissions for the managed app when "Customer allowed actions" or "Owner/Contributor" assigned is changed in the Partner Center by the publisher
 az rest --method POST --uri /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2/providers/Microsoft.Solutions/applications/avama2managedapp/refreshPermissions?api-version=2019-07-01
+
+# Refresh permissions using specific target version
+az rest --method POST --uri /subscriptions/c9c8ae57-acdb-48a9-99f8-d57704f18dee/resourceGroups/avama2/providers/Microsoft.Solutions/applications/avama2managedapp/refreshPermissions?api-version=2019-07-01&targetVersion=1.0.1
 ```
 
 ## Get Managed App Managed Identity

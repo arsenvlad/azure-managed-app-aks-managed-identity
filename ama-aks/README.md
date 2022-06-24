@@ -44,4 +44,4 @@ Without this delay, the deployment will succeed most of the time by may fail int
 
 After the app seems to work, publish in your [Partner Center account](https://docs.microsoft.com/en-us/azure/azure-resource-manager/managed-applications/publish-marketplace-app) by uploading the ama-aks.zip file to the relevant plan's technical configuration.
 
-After the app is available in preview, search for the app in <https://poral.azure.com> "Create a resource", and deploy using the UI.
+After the app is available in preview, search for the app in <https://portal.azure.com> "Create a resource", and deploy using the UI.
